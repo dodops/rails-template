@@ -1,8 +1,4 @@
 module NavbarHelper
-  # Generate <li><a href=...></a></li> appropriate for the Bootstrap navbar.
-  # If :active_when hash is provided in the options, a class=active will
-  # automatically be added to the <li> when appropriate.
-  #
   # Example:
   #
   #     <%= navbar_link_to(

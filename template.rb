@@ -3,15 +3,9 @@ RAILS_REQUIREMENT = "~> 5.2.0".freeze
 def apply_template!
   assert_minimum_rails_version
   assert_valid_options
-  assert_postgresql
   add_template_repository_to_source_path
 
   template "Gemfile.tt", force: true
-
-  if apply_capistrano?
-    template "DEPLOYMENT.md.tt"
-    template "PROVISIONING.md.tt"
-  end
 
   template "README.md.tt", force: true
   remove_file "README.rdoc"
@@ -22,18 +16,14 @@ def apply_template!
   template "ruby-version.tt", ".ruby-version", force: true
   copy_file "simplecov", ".simplecov"
 
-  copy_file "Capfile" if apply_capistrano?
   copy_file "Guardfile"
   copy_file "Procfile"
 
-  apply "config.ru.rb"
   apply "app/template.rb"
   apply "bin/template.rb"
-  apply "circleci/template.rb"
   apply "config/template.rb"
-  apply "doc/template.rb"
   apply "lib/template.rb"
-  apply "test/template.rb"
+  apply "spec/template.rb"
 
   apply "variants/bootstrap/template.rb" if apply_bootstrap?
 
@@ -41,14 +31,9 @@ def apply_template!
   empty_directory ".git/safe"
 
   run_with_clean_bundler_env "bin/setup"
-  create_initial_migration
   generate_spring_binstubs
 
-  binstubs = %w[
-    annotate brakeman bundler bundler-audit guard rubocop sidekiq
-    terminal-notifier
-  ]
-  binstubs.push("capistrano", "unicorn") if apply_capistrano?
+  binstubs = %w[bundler bundler-audit guard rubocop]
   run_with_clean_bundler_env "bundle binstubs #{binstubs.join(' ')} --force"
 
   template "rubocop.yml.tt", ".rubocop.yml"
@@ -56,8 +41,8 @@ def apply_template!
 
   unless any_local_git_commits?
     git add: "-A ."
-    git commit: "-n -m 'Set up project'"
-    git checkout: "-b development" if apply_capistrano?
+    git commit: "-n -m 'Initial commit'"
+    git checkout: "-b development"
     if git_repo_specified?
       git remote: "add origin #{git_repo_url.shellescape}"
       git push: "-u origin --all"
@@ -79,7 +64,7 @@ def add_template_repository_to_source_path
     at_exit { FileUtils.remove_entry(tempdir) }
     git clone: [
       "--quiet",
-      "https://github.com/mattbrictson/rails-template.git",
+      "https://github.com/dodops/rails-template.git",
       tempdir
     ].map(&:shellescape).join(" ")
 
@@ -107,7 +92,7 @@ def assert_valid_options
     skip_gemfile: false,
     skip_bundle: false,
     skip_git: false,
-    skip_test_unit: false,
+    skip_test_unit: true,
     edge: false
   }
   valid_options.each do |key, expected|
@@ -117,19 +102,6 @@ def assert_valid_options
       fail Rails::Generators::Error, "Unsupported option: #{key}=#{actual}"
     end
   end
-end
-
-def assert_postgresql
-  return if IO.read("Gemfile") =~ /^\s*gem ['"]pg['"]/
-  fail Rails::Generators::Error,
-       "This template requires PostgreSQL, "\
-       "but the pg gem isn’t present in your Gemfile."
-end
-
-# Mimic the convention used by capistrano-mb in order to generate
-# accurate deployment documentation.
-def capistrano_app_name
-  app_name.gsub(/[^a-zA-Z0-9_]/, "_")
 end
 
 def git_repo_url
@@ -178,12 +150,12 @@ def apply_bootstrap?
     =~ /^y(es)?/i
 end
 
-def apply_capistrano?
-  return @apply_capistrano if defined?(@apply_capistrano)
-  @apply_capistrano = \
-    ask_with_default("Use Capistrano for deployment?", :blue, "no") \
-    =~ /^y(es)?/i
-end
+# def apply_capistrano?
+#   return @apply_capistrano if defined?(@apply_capistrano)
+#   @apply_capistrano = \
+#     ask_with_default("Use Capistrano for deployment?", :blue, "no") \
+#     =~ /^y(es)?/i
+# end
 
 def run_with_clean_bundler_env(cmd)
   success = if defined?(Bundler)
@@ -199,12 +171,6 @@ end
 
 def run_rubocop_autocorrections
   run_with_clean_bundler_env "bin/rubocop -a --fail-level A > /dev/null || true"
-end
-
-def create_initial_migration
-  return if Dir["db/migrate/**/*.rb"].any?
-  run_with_clean_bundler_env "bin/rails generate migration initial_migration"
-  run_with_clean_bundler_env "bin/rake db:migrate"
 end
 
 apply_template!

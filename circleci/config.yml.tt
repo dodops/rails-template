@@ -8,13 +8,7 @@ jobs:
     docker:
       - image: circleci/ruby:<%= RUBY_VERSION %>-node-browsers
         environment:
-          PGHOST: 127.0.0.1
-          PGUSER: postgres
           RAILS_ENV: test
-      - image: circleci/postgres:9.4
-        environment:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ""
 
     working_directory: ~/repo
 
@@ -38,14 +32,6 @@ jobs:
           paths:
             - ./vendor/bundle
           key: v1-dependencies-{{ arch }}-{{ checksum "Gemfile.lock" }}
-
-      - run:
-          name: Run overcommit
-          command: |
-            git config --local user.name "Circle CI"
-            git config --local user.email ci@example.com
-            bundle exec overcommit --sign
-            bundle exec overcommit --run
 
       - run:
           name: Run security audits
